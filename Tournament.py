@@ -16,8 +16,9 @@ class TournamentResult:
         }
 
 class Tournament:
-    def __init__(self, key: str, group_name: str, is_final: bool, current_max_round: int, max_round: int, results: List[TournamentResult] = None):
+    def __init__(self, key: str, tnr_name: str, group_name: str, is_final: bool, current_max_round: int, max_round: int, results: List[TournamentResult] = None):
         self.key = key
+        self.tnr_name = tnr_name
         self.group_name = group_name
         self.is_final = is_final
         self.current_max_round = current_max_round

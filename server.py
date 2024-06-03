@@ -9,6 +9,7 @@ from db_service import *
 from flask_caching import Cache
 import hashlib
 from error import TournamentNotHaveInfoError
+from functools import lru_cache
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -68,32 +69,22 @@ def get_chess_results_tournament_info(api_url) -> Tournament:
         key = get_tnr_key(api_url)
         if homepage_response.status_code == 200:
             html_content = homepage_response.text
+            tnr_name = get_tnr_name(html_content)
             group_name = get_tnr_group(html_content)
             max_round = get_tnr_round(html_content)
             current_max_round = get_tnr_current_max_round(html_content)
-            is_final = int(max_round) == int(current_max_round)
-            tnr = Tournament(key, group_name, is_final, current_max_round, max_round, None)
+            if (max_round != None and current_max_round != None):
+                is_final = int(max_round) == int(current_max_round)
+            else:
+                is_final = False
+            tnr = Tournament(key, tnr_name, group_name, is_final, current_max_round, max_round, None)
             return tnr
         else:
             raise Exception("Error")
     except:
         raise TournamentNotHaveInfoError()
 
-def get_rank_from_chessreults_when_db_not_exists(api_url, excel_url):
-    try:
-        tnr_info = get_chess_results_tournament_info(api_url)
-        round = tnr_info.current_max_round
-        excel_url = excel_url[:-1] + f'{round}'
-        rows = get_chess_results_excel_rows(excel_url)
-        round_res = TournamentResult(round, rows)
-        tnr_info.results = [round_res]
-        insert_tnr_info(tnr_info)
-        group_name = tnr_info.group_name
-        return rows, group_name
-    except:
-        raise "Error"
-
-def get_rank_from_chessreults_when_db_not_exists2(api_url, excel_url, round):
+def get_rank_from_chessreults_when_db_not_exists(api_url, excel_url, round):
     try:
         tnr_info = get_chess_results_tournament_info(api_url)
         excel_url = excel_url[:-1] + f'{round}'
@@ -110,10 +101,39 @@ def get_rank_from_chessresult_when_db_exists(tnr_info: Tournament, excel_url, ro
     excel_url = excel_url[:-1] + f'{round}'
     rows = get_chess_results_excel_rows(excel_url)
     round_res = round_res = TournamentResult(round, rows)
-    update_data = Tournament(tnr_info.key, tnr_info.group_name, tnr_info.is_final, tnr_info.current_max_round, tnr_info.max_round)
+    update_data = Tournament(tnr_info.key, tnr_info.tnr_name, tnr_info.group_name, tnr_info.is_final, tnr_info.current_max_round, tnr_info.max_round)
     update_tnr_info(tnr_info.key, update_data)
     add_round_to_tnr(tournament_key=tnr_info.key, value=round_res)
     return rows
+
+@lru_cache(maxsize=128)
+def get_tnr_result_from_key_and_round(key: str, round: int):
+    try:
+        db_tnr = find_db_have_tournament(tournament_key=key)
+        api_url = get_chess_result_link_from_key_and_round(key, round)
+        excel_url, _, _ = format_chess_results_excel_link(api_url)
+        if (db_tnr):
+            round_res = find_object_with_key_value(db_tnr['results'], "round", round)
+            if (round_res != None):
+                # Case1: Get from DB
+                rows = round_res['rows']
+            else:
+                # Case2: Get from chessresults when DB exist tournament
+                tnr_info = get_chess_results_tournament_info(api_url)
+                rows = get_rank_from_chessresult_when_db_exists(tnr_info, excel_url, round)
+            group_name = db_tnr['groupName']
+        else:
+            # Case3: Get from chessresults when DB not exist tournament
+            rows, group_name = get_rank_from_chessreults_when_db_not_exists(api_url=api_url, excel_url=excel_url, round=round)
+        tnr = {
+            "url": api_url,
+            "groupName": group_name,
+            "round": round,
+            "rows": rows
+        }
+        return tnr
+    except Exception as e:
+        raise "Error"
 
 def get_tnr_result(api_url):
     try:
@@ -130,25 +150,7 @@ def get_tnr_result(api_url):
             else:
                 tnr_info = get_chess_results_tournament_info(api_url)
                 round = tnr_info.current_max_round
-        if (db_tnr):
-            round_res = find_object_with_key_value(db_tnr['results'], "round", round)
-            if (round_res != None):
-                # Case1: Get from DB
-                rows = round_res['rows']
-            else:
-                # Case2: Get from chessresults when DB exist tournament
-                tnr_info = get_chess_results_tournament_info(api_url)
-                rows = get_rank_from_chessresult_when_db_exists(tnr_info, excel_url, round)
-            group_name = db_tnr['groupName']
-        else:
-            # Case3: Get from chessresults when DB not exist tournament
-            rows, group_name = get_rank_from_chessreults_when_db_not_exists2(api_url=api_url, excel_url=excel_url, round=round)
-        tnr = {
-            "url": api_url,
-            "groupName": group_name,
-            "round": round,
-            "rows": rows
-        }
+        tnr = get_tnr_result_from_key_and_round(key, round)
         return tnr
     except TournamentNotHaveInfoError as e:
         raise TournamentNotHaveInfoError("Error")
@@ -194,9 +196,28 @@ def search():
     if response.status_code == 200:
         html_content = response.text
         tnr_res = get_tnr(html_content)
+        res = []
+        for tnr in tnr_res:
+            api_url = f"https://chess-results.com/{tnr['url']}"
+            key = get_tnr_key(api_url)
+            db_tnr = find_db_have_tournament(key)
+            if (db_tnr):
+                print('Case1')
+                res.append({
+                    "url": tnr['url'],
+                    "name": db_tnr['tnrName']
+                })
+            else:
+                print('Case2')
+                tnr_info = get_chess_results_tournament_info(api_url)
+                insert_tnr_info(tnr_info)
+                res.append({
+                    "url": tnr['url'],
+                    "name": tnr_info.tnr_name
+                })
 
         return {
-            'data': tnr_res
+            'data': res
         }, 200
     return {
         'data': [],

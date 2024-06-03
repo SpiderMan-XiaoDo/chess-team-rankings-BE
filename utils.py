@@ -1,6 +1,9 @@
 import re
 from openpyxl import load_workbook
 
+def decode_html_entities(s: str) -> str:
+    return re.sub(r'&#(\d+);', lambda match: chr(int(match.group(1))), s)
+
 def find_object_with_key_value(lst, key, value):
     for obj in lst:
         if obj.get(key) == value:
@@ -63,25 +66,26 @@ def get_tnr_info(html_content: str, prev_phrase_str: str, prev_end_phrase_str: s
     else:
         return None
 
+def get_tnr_name(html_content: str):
+    prev_phrase_str = '<table'
+    info_start_str = '<h2>'
+    info_end_str = '</h2>'
+    tnr_name = get_tnr_info(html_content, prev_phrase_str, None, info_start_str, info_end_str)
+    return tnr_name
+
 def get_tnr_group(html_content: str):
     prev_phrase_str = '<td class="CRnowrap b">Tournament selection</td>'
     info_start_str = '<b>'
     info_end_str = '</b>'
     group_name = get_tnr_info(html_content, prev_phrase_str, None, info_start_str, info_end_str)
-    if group_name != None:
-        return group_name
-    else:
-        raise Exception("Error")
+    return group_name
     
 def get_tnr_round(html_content: str):
     prev_phrase_str = '<td class="CR">Number of rounds</td>'
     info_start_str = '<td class="CR">'
     info_end_str = '</td>'
     tnr_round = get_tnr_info(html_content, prev_phrase_str, None, info_start_str, info_end_str)
-    if tnr_round != None:
-        return tnr_round
-    else:
-        raise Exception("Error")
+    return tnr_round
 
 def get_tnr_current_max_round(html_content: str):
     prev_phrase_str = '<td class="CRnowrap b">Ranking list after</td>'
@@ -89,16 +93,18 @@ def get_tnr_current_max_round(html_content: str):
     info_start_str = 'Rd.'
     info_end_str = '</a>'
     tnr_current_max_round = get_tnr_info(html_content, prev_phrase_str, prev_end_phrase_str, info_start_str, info_end_str, find_direction="desc")
-    if tnr_current_max_round != None:
-        return tnr_current_max_round
-    else:
-        raise Exception("Error")
+    return tnr_current_max_round
 
 def get_tnr_key(api_url: str):
     tnr_start_idx = api_url.find('tnr') + 3
     tnr_end_idx = api_url.find('.aspx')
     return api_url[tnr_start_idx:tnr_end_idx]
  
+def get_chess_result_link_from_key_and_round(key: str, round: int):
+    url = f'https://chess-results.com/tnr{key}.aspx?lan=1&art=1&rd={round}&turdet=YES'
+    return url
+
+
 def check_chess_results_link(value: str):
     is_chess_results_link = value.startswith('https://chess-results.com/tnr')
     if (is_chess_results_link == False):

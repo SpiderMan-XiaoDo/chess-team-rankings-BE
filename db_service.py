@@ -14,9 +14,13 @@ def insert_tnr_info(tnr: Tournament):
     try:
         db = get_db()
         tournament_collection = db.tournament
-        results = [obj.to_dict() for obj in tnr.results]
+        if (tnr.results == None):
+            results = []
+        else:
+            results = [obj.to_dict() for obj in tnr.results]
         id = tournament_collection.insert_one({
             "key": tnr.key,
+            "tnrName": tnr.tnr_name,
             "groupName": tnr.group_name,
             "isFinal": tnr.is_final,
             "currentMaxRound": tnr.current_max_round,
