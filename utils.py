@@ -71,6 +71,8 @@ def get_tnr_name(html_content: str):
     info_start_str = '<h2>'
     info_end_str = '</h2>'
     tnr_name = get_tnr_info(html_content, prev_phrase_str, None, info_start_str, info_end_str)
+    tnr_name = decode_html_entities(tnr_name)
+    print(tnr_name)
     return tnr_name
 
 def get_tnr_group(html_content: str):

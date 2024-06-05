@@ -10,6 +10,7 @@ from flask_caching import Cache
 import hashlib
 from error import TournamentNotHaveInfoError
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -106,7 +107,7 @@ def get_rank_from_chessresult_when_db_exists(tnr_info: Tournament, excel_url, ro
     add_round_to_tnr(tournament_key=tnr_info.key, value=round_res)
     return rows
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=1024)
 def get_tnr_result_from_key_and_round(key: str, round: int):
     try:
         db_tnr = find_db_have_tournament(tournament_key=key)
@@ -156,7 +157,27 @@ def get_tnr_result(api_url):
         raise TournamentNotHaveInfoError("Error")
     except Exception as e:
         raise e
-    
+
+def insert_search_tnr_result(tnr):
+    api_url = f"https://chess-results.com/{tnr['url']}"
+    key = get_tnr_key(api_url)
+    db_tnr = find_db_have_tournament(key)
+    if (db_tnr):
+        print('Case1')
+        res = {
+            "url": tnr['url'],
+            "name": db_tnr['tnrName']
+        }
+    else:
+        print('Case2')
+        tnr_info = get_chess_results_tournament_info(api_url)
+        insert_tnr_info(tnr_info)
+        res = {
+            "url": tnr['url'],
+            "name": tnr_info.tnr_name
+        }
+    return res
+
 @app.route('/search', methods=['POST'])
 @cache.cached(timeout=60, key_prefix='search', make_cache_key=make_cache_key)
 def search():
@@ -197,25 +218,12 @@ def search():
         html_content = response.text
         tnr_res = get_tnr(html_content)
         res = []
-        for tnr in tnr_res:
-            api_url = f"https://chess-results.com/{tnr['url']}"
-            key = get_tnr_key(api_url)
-            db_tnr = find_db_have_tournament(key)
-            if (db_tnr):
-                print('Case1')
-                res.append({
-                    "url": tnr['url'],
-                    "name": db_tnr['tnrName']
-                })
-            else:
-                print('Case2')
-                tnr_info = get_chess_results_tournament_info(api_url)
-                insert_tnr_info(tnr_info)
-                res.append({
-                    "url": tnr['url'],
-                    "name": tnr_info.tnr_name
-                })
-
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for tnr in tnr_res:
+                futures.append(executor.submit(insert_search_tnr_result, tnr=tnr))
+            for future in as_completed(futures):
+                res.append(future.result())  
         return {
             'data': res
         }, 200
@@ -243,7 +251,6 @@ def getRank():
         return {"message": e}, 500
 
 @app.route('/getRanks', methods=['POST'])
-@cache.cached(timeout=600, key_prefix='getRanks', make_cache_key=make_cache_key)
 def get_ranks():
     data = request.json
     url_list = data['urls']
@@ -252,16 +259,20 @@ def get_ranks():
             "message": "Lỗi thiếu tham số!"
         }, 500
     res = []
-    for api_url in url_list:
-        try:
-            tnr = get_tnr_result(api_url)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = []
+        for api_url in url_list:
+            try:
+                futures.append(executor.submit(get_tnr_result, api_url=api_url))
+            except TournamentNotHaveInfoError as error:
+                continue
+            except Exception as error:
+                return {
+                    "message": error
+                }, 500
+        for future in as_completed(futures):
+            tnr = future.result()
             res.append(tnr)
-        except TournamentNotHaveInfoError as error:
-            continue
-        except Exception as error:
-            return {
-                "message": error
-            }, 500
     return {
         "data": res
     }, 200
