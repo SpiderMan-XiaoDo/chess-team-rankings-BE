@@ -1,27 +1,10 @@
 import re
-from openpyxl import load_workbook
+from typing import List
+from . import decode_html_entities
+from models.tournament import TnrSearchOutput
+from api_urls import BASE_API_URL
 
-def decode_html_entities(s: str) -> str:
-    return re.sub(r'&#(\d+);', lambda match: chr(int(match.group(1))), s)
-
-def find_object_with_key_value(lst, key, value):
-    for obj in lst:
-        if obj.get(key) == value:
-            return obj
-    return None
-
-def get_excel_rows(file):
-    wb = load_workbook(file, data_only=True)
-    sheet = wb['Sheet1']
-    rows = []
-    for row in sheet.iter_rows():
-        row_data = []  # Empty list to store values from each row
-        for cell in row:
-            row_data.append(cell.value)
-        rows.append(row_data)
-    return rows
-
-def get_tnr(html_content: str):
+def get_tnr(html_content: str) -> List[TnrSearchOutput]:
     index = html_content.find('<table class="CRs2"')
     if index != -1:
         search_content = html_content[index:]
@@ -72,7 +55,6 @@ def get_tnr_name(html_content: str):
     info_end_str = '</h2>'
     tnr_name = get_tnr_info(html_content, prev_phrase_str, None, info_start_str, info_end_str)
     tnr_name = decode_html_entities(tnr_name)
-    print(tnr_name)
     return tnr_name
 
 def get_tnr_group(html_content: str):
@@ -101,14 +83,13 @@ def get_tnr_key(api_url: str):
     tnr_start_idx = api_url.find('tnr') + 3
     tnr_end_idx = api_url.find('.aspx')
     return api_url[tnr_start_idx:tnr_end_idx]
- 
+
 def get_chess_result_link_from_key_and_round(key: str, round: int):
-    url = f'https://chess-results.com/tnr{key}.aspx?lan=1&art=1&rd={round}&turdet=YES'
+    url = f'{BASE_API_URL}/tnr{key}.aspx?lan=1&art=1&rd={round}&turdet=YES'
     return url
 
-
 def check_chess_results_link(value: str):
-    is_chess_results_link = value.startswith('https://chess-results.com/tnr')
+    is_chess_results_link = value.startswith(f'{BASE_API_URL}/tnr')
     if (is_chess_results_link == False):
         return False
     end_main_url_idx = value.find('.aspx')
@@ -123,7 +104,7 @@ def format_chess_results_excel_link(value: str):
     end_main_url_idx = value.find('.aspx')
     if (value[end_main_url_idx + 1] != '?'):
         url = url.replace('.aspx', '.aspx?')
-    round_idx = url.find("rd=")
+    round_idx = value.find("rd=")
     first_param_idx = url.find("?") + 1
     url = url[0:first_param_idx]
     url += "lan=1&art=1&zeilen=0&prt=4&excel=2010&"
@@ -133,7 +114,7 @@ def format_chess_results_excel_link(value: str):
         url += "rd=9"
     else:
         have_round = True
-        round = value[round_idx + 4:].split("&")[0]
+        round = value[round_idx + 3:].split("&")[0]
         url += value[round_idx:].split("&")[0]
     return url, have_round, round
 
