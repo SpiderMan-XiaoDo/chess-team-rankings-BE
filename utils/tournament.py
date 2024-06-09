@@ -1,7 +1,8 @@
 import re
 from typing import List
 from . import decode_html_entities
-from models.tournament import TnrSearchOutput
+from models.tournament import TnrSearchOutput, Tournament
+from models.error import TournamentNotHaveInfoError
 from api_urls import BASE_API_URL
 
 def get_tnr(html_content: str) -> List[TnrSearchOutput]:
@@ -79,6 +80,21 @@ def get_tnr_current_max_round(html_content: str):
     tnr_current_max_round = get_tnr_info(html_content, prev_phrase_str, prev_end_phrase_str, info_start_str, info_end_str, find_direction="desc")
     return tnr_current_max_round
 
+def get_chess_results_tournament_info_from_html(key, html_content: str) -> Tournament:
+    try:
+        tnr_name = get_tnr_name(html_content)
+        group_name = get_tnr_group(html_content)
+        max_round = get_tnr_round(html_content)
+        current_max_round = get_tnr_current_max_round(html_content)
+        if (max_round != None and current_max_round != None):
+            is_final = int(max_round) == int(current_max_round)
+        else:
+            is_final = False
+        tnr = Tournament(key, tnr_name, group_name, is_final, current_max_round, max_round, None)
+        return tnr
+    except:
+        raise TournamentNotHaveInfoError()
+
 def get_tnr_key(api_url: str):
     tnr_start_idx = api_url.find('tnr') + 3
     tnr_end_idx = api_url.find('.aspx')
@@ -97,35 +113,14 @@ def check_chess_results_link(value: str):
         return False
     return True
     
-def format_chess_results_excel_link(value: str):
-    if (check_chess_results_link(value) == False):
-        raise Exception('Invalid Chessresult Link')
-    url = value
-    end_main_url_idx = value.find('.aspx')
-    if (value[end_main_url_idx + 1] != '?'):
-        url = url.replace('.aspx', '.aspx?')
-    round_idx = value.find("rd=")
-    first_param_idx = url.find("?") + 1
-    url = url[0:first_param_idx]
-    url += "lan=1&art=1&zeilen=0&prt=4&excel=2010&"
-    if (round_idx == -1):
-        have_round = False
-        round = None
+def get_chess_results_excel_link(key: str, round: int = None):
+    url = f'{BASE_API_URL}/tnr{key}.aspx?lan=1&art=1&zeilen=0&prt=4&excel=2010&'
+    if (round == None):
         url += "rd=9"
     else:
-        have_round = True
-        round = value[round_idx + 3:].split("&")[0]
-        url += value[round_idx:].split("&")[0]
-    return url, have_round, round
+        url += f"rd={round}"
+    return url
 
-def format_chess_results_homepage_link(value: str):
-    if (check_chess_results_link(value) == False):
-        raise Exception('Invalid Chessresult Link')
-    url = value
-    end_main_url_idx = value.find('.aspx')
-    if (value[end_main_url_idx + 1] != '?'):
-        url = url.replace('.aspx', '.aspx?')
-    first_param_idx = url.find("?") + 1
-    url = url[:first_param_idx]
-    url += 'lan=1&turdet=YES'
+def get_chess_results_homepage_link(key: str):
+    url = f'{BASE_API_URL}/tnr{key}.aspx?lan=1&turder=YES'
     return url

@@ -11,9 +11,15 @@ class TournamentResult:
     
     def to_dict(self):
         return {
-            "round": self.round,
+            "round": str (self.round),
             "rows": self.rows
         }
+    
+    @staticmethod
+    def from_dict(tournament_result):
+        if (dict == None):
+            return None
+        return TournamentResult(tournament_result['round'], tournament_result['rows'])
 
 class Tournament:
     def __init__(self, key: str, tnr_name: str, group_name: str, is_final: bool, current_max_round: int, max_round: int, results: List[TournamentResult] = None):
@@ -35,16 +41,26 @@ class Tournament:
             "tnrName": self.tnr_name,
             "groupName": self.group_name,
             "isFinal": self.is_final,
-            "currentMaxRound": self.current_max_round,
-            "maxRound": self.max_round,
+            "currentMaxRound": str (self.current_max_round),
+            "maxRound": str (self.max_round),
             "results": results
         }
+
+    @staticmethod
+    def from_dict(tournament: dict):
+        if (tournament == None):
+            return None
+        if (tournament['results'] == None):
+            results = []
+        else:
+            results = [TournamentResult.from_dict(obj) for obj in tournament['results']]
+        return Tournament(tournament['key'], tournament['tnrName'], tournament['groupName'], tournament['isFinal'], tournament['currentMaxRound'], tournament['maxRound'], results)
     
     def get_update_data_dict(self):
         update_data = {
             "isFinal": self.is_final,
-            "currentMaxRound": self.current_max_round,
-            "maxRound": self.max_round,
+            "currentMaxRound": str (self.current_max_round),
+            "maxRound": str (self.max_round),
         }
         return update_data
     

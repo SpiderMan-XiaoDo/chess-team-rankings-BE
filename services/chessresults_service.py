@@ -1,20 +1,18 @@
 from typing import Tuple
-from utils.tournament import format_chess_results_homepage_link
 from api_urls.utils import getvs
 from api_urls import BASE_API_URL
 from models.tournament import TnrHomepageInput, Tournament, TournamentResult, TnrSearchOutput
-from models.error import DatabaseError, TournamentNotHaveInfoError, CHESSRESULTS_CONNECT_ERROR_MSG, NOT_FOUND_CHESSRESULTS_XLSX_FILE_MESSAGE
-from utils import find_object_with_key_value
+from models.error import DatabaseError, TournamentNotHaveInfoError, CHESSRESULTS_CONNECT_ERROR_MSG, DATABASE_ERROR_MESSAGE, NOT_FOUND_CHESSRESULTS_XLSX_FILE_MESSAGE
 from utils.xlsx import get_excel_rows
-from utils.tournament import get_tnr_key, get_tnr_name, get_tnr_group, get_tnr_round, get_tnr_current_max_round, get_chess_result_link_from_key_and_round, format_chess_results_excel_link
+from utils.tournament import get_tnr_key, get_chess_results_tournament_info_from_html, get_chess_result_link_from_key_and_round, get_chess_results_excel_link, get_chess_results_homepage_link
 from services.db_service import insert_tnr_info, update_tnr_info, add_round_to_tnr, find_db_have_tournament
 import requests
 import io
 from functools import lru_cache
 
-def get_tnr_homepage_response(api_url) -> str:
+def get_tnr_homepage_response(key: str) -> str:
     try:
-        homepage_url = format_chess_results_homepage_link(api_url)
+        homepage_url = get_chess_results_homepage_link(key)
         vs, ev, vsg = getvs(homepage_url)
         tnr_homepage_input = TnrHomepageInput(vs, ev, vsg)
         data = tnr_homepage_input.to_dict()
@@ -36,67 +34,74 @@ def get_chess_results_excel_rows(excel_url) -> list:
     else:
         raise DatabaseError(NOT_FOUND_CHESSRESULTS_XLSX_FILE_MESSAGE)
     
-def get_chess_results_tournament_info(api_url) -> Tournament:
+def get_chess_results_tournament_info(key: str) -> Tournament:
     try:
-        key = get_tnr_key(api_url)
-        tnr_html_content = get_tnr_homepage_response(api_url)
-        tnr_name = get_tnr_name(tnr_html_content)
-        group_name = get_tnr_group(tnr_html_content)
-        max_round = get_tnr_round(tnr_html_content)
-        current_max_round = get_tnr_current_max_round(tnr_html_content)
-        if (max_round != None and current_max_round != None):
-            is_final = int(max_round) == int(current_max_round)
-        else:
-            is_final = False
-        tnr = Tournament(key, tnr_name, group_name, is_final, current_max_round, max_round, None)
+        tnr_html_content = get_tnr_homepage_response(key)
+        tnr = get_chess_results_tournament_info_from_html(tnr_html_content)
         return tnr
-    except:
-        raise TournamentNotHaveInfoError()
+    except Exception as e:
+        raise e
     
-def get_rank_from_chessreults_when_db_not_exists(api_url, excel_url, round) -> Tuple[list, str]:
+def get_rank_from_chessreults_when_db_not_exists(key: str, round) -> Tuple[list, str]:
     try:
-        tnr_info = get_chess_results_tournament_info(api_url)
-        excel_url = excel_url[:-1] + f'{round}'
+        excel_url = get_chess_results_excel_link(key, round)
         rows = get_chess_results_excel_rows(excel_url)
-        round_res = TournamentResult(round, rows)
-        tnr_info.results = [round_res]
-        insert_tnr_info(tnr_info)
-        group_name = tnr_info.group_name
-        return rows, group_name
-    except:
-        raise DatabaseError(CHESSRESULTS_CONNECT_ERROR_MSG)
-    
-def get_rank_from_chessresult_when_db_exists(tnr_info: Tournament, excel_url, round) -> list:
-    try:
-        excel_url = excel_url[:-1] + f'{round}'
-        rows = get_chess_results_excel_rows(excel_url)
-        round_res = round_res = TournamentResult(round, rows)
-        update_data = Tournament(tnr_info.key, tnr_info.tnr_name, tnr_info.group_name, tnr_info.is_final, tnr_info.current_max_round, tnr_info.max_round)
-        update_tnr_info(tnr_info.key, update_data)
-        add_round_to_tnr(tournament_key=tnr_info.key, value=round_res)
         return rows
     except:
         raise DatabaseError(CHESSRESULTS_CONNECT_ERROR_MSG)
     
-@lru_cache(maxsize=1024)
-def get_tnr_result_from_key_and_round(key: str, round: int):
+def get_rank_from_chessresult_when_db_exists(key: str, round) -> list:
     try:
-        db_tnr = find_db_have_tournament(tournament_key=key)
+        excel_url = get_chess_results_excel_link(key, round)
+        rows = get_chess_results_excel_rows(excel_url)
+        return rows
+    except:
+        raise DatabaseError(CHESSRESULTS_CONNECT_ERROR_MSG)
+    
+def insert_tnr_to_db(key: str, round, rows: list) -> Tournament:
+    try:
+        tnr_info = get_chess_results_tournament_info(key)
+        round_res = TournamentResult(round, rows)
+        tnr_info.results = [round_res]
+        insert_tnr_info(tnr_info)
+        return tnr_info
+    except:
+        raise DatabaseError(DATABASE_ERROR_MESSAGE)
+
+def update_tnr_to_db(tnr_info: Tournament, round, rows) -> Tournament:
+    round_res = round_res = TournamentResult(round, rows)
+    update_data = Tournament(tnr_info.key, tnr_info.tnr_name, tnr_info.group_name, tnr_info.is_final, tnr_info.current_max_round, tnr_info.max_round)
+    update_tnr_info(tnr_info.key, update_data)
+    add_round_to_tnr(tournament_key=tnr_info.key, value=round_res)
+    return rows
+
+@lru_cache(maxsize=1024)
+def get_tnr_result_from_key_and_round(key: str, round: int, db_tnr: Tournament = None):
+    try:
         api_url = get_chess_result_link_from_key_and_round(key, round)
-        excel_url, _, _ = format_chess_results_excel_link(api_url)
-        if (db_tnr):
-            round_res = find_object_with_key_value(db_tnr['results'], "round", round)
-            if (round_res != None):
-                # Case1: Get from DB
-                rows = round_res['rows']
+        excel_url = get_chess_results_excel_link(key, round)
+        if (db_tnr != None):
+            if (db_tnr.results != None):
+                round_res = next((obj for obj in db_tnr.results if obj.round == round), None)
             else:
+                round_res = None
+            if (round_res != None):
+                print('case 1')
+                # Case1: Get from DB
+                rows = round_res.rows
+            else:
+                print('case 2')
                 # Case2: Get from chessresults when DB exist tournament
-                tnr_info = get_chess_results_tournament_info(api_url)
-                rows = get_rank_from_chessresult_when_db_exists(tnr_info, excel_url, round)
-            group_name = db_tnr['groupName']
+                tnr_info = get_chess_results_tournament_info(key)
+                rows = get_rank_from_chessresult_when_db_exists(key=key, round=round)
+                update_tnr_to_db(tnr_info=tnr_info, round=round, rows=rows)
+            group_name = db_tnr.group_name
         else:
+            print('case 3')
             # Case3: Get from chessresults when DB not exist tournament
-            rows, group_name = get_rank_from_chessreults_when_db_not_exists(api_url=api_url, excel_url=excel_url, round=round)
+            rows = get_rank_from_chessreults_when_db_not_exists(key=key, excel_url=excel_url, round=round)
+            tnr_info = insert_tnr_to_db(key, round, rows)
+            group_name = tnr_info.group_name
         tnr = {
             "url": api_url,
             "groupName": group_name,
@@ -105,24 +110,23 @@ def get_tnr_result_from_key_and_round(key: str, round: int):
         }
         return tnr
     except Exception as e:
-        raise "Error"
+        raise e
     
-def get_tnr_result(api_url):
+def get_tnr_result(key: str, round: int = None):
     try:
-        excel_url, have_round, round = format_chess_results_excel_link(api_url)
-        key = get_tnr_key(api_url)
         db_tnr = find_db_have_tournament(tournament_key=key)
-        if (have_round == False):
-            if (db_tnr):
+        if (round == None):
+            if (db_tnr != None):
                 if (db_tnr['isFinal'] == True):
                     round = db_tnr['maxRound']
                 else:
-                    tnr_info = get_chess_results_tournament_info(api_url)
+                    tnr_info = get_chess_results_tournament_info(key)
                     round = tnr_info.current_max_round
             else:
-                tnr_info = get_chess_results_tournament_info(api_url)
+                tnr_info = get_chess_results_tournament_info(key)
                 round = tnr_info.current_max_round
-        tnr = get_tnr_result_from_key_and_round(key, round)
+        db_tnr_temp = Tournament.from_dict(db_tnr)
+        tnr = get_tnr_result_from_key_and_round(key=key, round=round, db_tnr=db_tnr_temp)
         return tnr
     except TournamentNotHaveInfoError as e:
         raise TournamentNotHaveInfoError("Error")
@@ -141,7 +145,7 @@ def insert_search_tnr_result(tnr: TnrSearchOutput):
         }
     else:
         print('Case2')
-        tnr_info = get_chess_results_tournament_info(api_url)
+        tnr_info = get_chess_results_tournament_info(key)
         insert_tnr_info(tnr_info)
         res = {
             "url": tnr['url'],

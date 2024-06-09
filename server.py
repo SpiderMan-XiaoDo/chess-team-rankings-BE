@@ -55,18 +55,21 @@ def search():
         'data': [],
         'message': "Lỗi không xác định!"
     }, 500
-
 @app.route('/getRank', methods=['POST'])
 @cache.cached(timeout=600, key_prefix='getRank', make_cache_key=make_cache_key)
 def getRank():
     data = request.json
-    api_url = data['url']
-    if api_url is None:
+    key = data['key']
+    if (hasattr(data, 'round')):
+        round = str (data['round'])
+    else:
+        round = None
+    if key is None:
         return {
             "message": "Lỗi thiếu tham số"
         }, 500
     try:
-        tnr = get_tnr_result(api_url)
+        tnr = get_tnr_result(key, round)
         return {
             "data": tnr
         }
@@ -77,17 +80,22 @@ def getRank():
 @app.route('/getRanks', methods=['POST'])
 def get_ranks():
     data = request.json
-    url_list = data['urls']
-    if url_list is None:
+    data_list = data['datas']
+    if data_list is None:
         return {
             "message": "Lỗi thiếu tham số!"
         }, 500
     res = []
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
-        for api_url in url_list:
+        for data in data_list:
+            key = data['key']
+            if (hasattr(data, 'round')):
+                round = str (data['round'])
+            else:
+                round = None
             try:
-                futures.append(executor.submit(get_tnr_result, api_url=api_url))
+                futures.append(executor.submit(get_tnr_result, key=key, round=round))
             except TournamentNotHaveInfoError as error:
                 continue
             except Exception as error:
