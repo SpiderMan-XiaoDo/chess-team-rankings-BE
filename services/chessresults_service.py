@@ -37,7 +37,7 @@ def get_chess_results_excel_rows(excel_url) -> list:
 def get_chess_results_tournament_info(key: str) -> Tournament:
     try:
         tnr_html_content = get_tnr_homepage_response(key)
-        tnr = get_chess_results_tournament_info_from_html(tnr_html_content)
+        tnr = get_chess_results_tournament_info_from_html(key, tnr_html_content)
         return tnr
     except Exception as e:
         raise e
@@ -99,7 +99,7 @@ def get_tnr_result_from_key_and_round(key: str, round: int, db_tnr: Tournament =
         else:
             print('case 3')
             # Case3: Get from chessresults when DB not exist tournament
-            rows = get_rank_from_chessreults_when_db_not_exists(key=key, excel_url=excel_url, round=round)
+            rows = get_rank_from_chessreults_when_db_not_exists(key=key, round=round)
             tnr_info = insert_tnr_to_db(key, round, rows)
             group_name = tnr_info.group_name
         tnr = {
