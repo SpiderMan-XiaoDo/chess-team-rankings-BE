@@ -60,7 +60,7 @@ def search():
 def getRank():
     data = request.json
     key = data['key']
-    if (hasattr(data, 'round')):
+    if ('round' in data):
         round = str (data['round'])
     else:
         round = None
@@ -90,7 +90,7 @@ def get_ranks():
         futures = []
         for data in data_list:
             key = data['key']
-            if (hasattr(data, 'round')):
+            if ('round' in data):
                 round = str (data['round'])
             else:
                 round = None
