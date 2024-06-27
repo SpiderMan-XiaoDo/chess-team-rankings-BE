@@ -9,7 +9,7 @@ from models.tournament import TnrSearchInput
 from utils import make_cache_key
 from utils.tournament import get_tnr
 from models.error import TournamentNotHaveInfoError
-from services.chessresults_service import insert_search_tnr_result, get_tnr_result
+from services import Chessresults_Service
 from api_urls import SEARCH_URL
 from api_urls.utils import getvs
 
@@ -39,13 +39,14 @@ def search():
     }
     response = requests.post(api_url, data=data, headers=headers)
     if response.status_code == 200:
+        chessresults_service = Chessresults_Service()
         html_content = response.text
         tnr_res = get_tnr(html_content)
         res = []
         with ThreadPoolExecutor() as executor:
             futures = []
             for tnr in tnr_res:
-                futures.append(executor.submit(insert_search_tnr_result, tnr=tnr))
+                futures.append(executor.submit(chessresults_service.insert_search_tnr_result, tnr=tnr))
             for future in as_completed(futures):
                 res.append(future.result())  
         return {
@@ -56,7 +57,7 @@ def search():
         'message': "Lỗi không xác định!"
     }, 500
 @app.route('/getRank', methods=['POST'])
-@cache.cached(timeout=600, key_prefix='getRank', make_cache_key=make_cache_key)
+# @cache.cached(timeout=600, key_prefix='getRank', make_cache_key=make_cache_key)
 def getRank():
     data = request.json
     key = data['key']
@@ -69,7 +70,8 @@ def getRank():
             "message": "Lỗi thiếu tham số"
         }, 500
     try:
-        tnr = get_tnr_result(key, round)
+        chessresults_service = Chessresults_Service()
+        tnr = chessresults_service.get_tnr_result(key, round)
         return {
             "data": tnr
         }
@@ -89,13 +91,14 @@ def get_ranks():
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
         for data in data_list:
+            chessresults_service = Chessresults_Service()
             key = data['key']
             if ('round' in data):
                 round = str (data['round'])
             else:
                 round = None
             try:
-                futures.append(executor.submit(get_tnr_result, key=key, round=round))
+                futures.append(executor.submit(chessresults_service.get_tnr_result, key=key, round=round))
             except TournamentNotHaveInfoError as error:
                 continue
             except Exception as error:
