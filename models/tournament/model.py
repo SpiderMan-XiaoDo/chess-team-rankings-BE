@@ -22,8 +22,9 @@ class TournamentResult:
         return TournamentResult(tournament_result['round'], tournament_result['rows'])
 
 class Tournament:
-    def __init__(self, key: str, tnr_name: str, group_name: str, is_final: bool, current_max_round: int, max_round: int, results: List[TournamentResult] = None):
+    def __init__(self, key: str, url: str, tnr_name: str, group_name: str, is_final: bool, current_max_round: int, max_round: int, results: List[TournamentResult] = None):
         self.key = key
+        self.url = url
         self.tnr_name = tnr_name
         self.group_name = group_name
         self.is_final = is_final
@@ -38,10 +39,11 @@ class Tournament:
             results = [obj.to_dict() for obj in self.results]
         return {
             "key": self.key,
+            "url": self.url,
             "tnrName": self.tnr_name,
             "groupName": self.group_name,
             "isFinal": self.is_final,
-            "currentMaxRound": str (self.current_max_round),
+            "currentMaxRound": str (self.current_max_round) if self.current_max_round != None else None,
             "maxRound": str (self.max_round),
             "results": results
         }
@@ -54,12 +56,12 @@ class Tournament:
             results = []
         else:
             results = [TournamentResult.from_dict(obj) for obj in tournament['results']]
-        return Tournament(tournament['key'], tournament['tnrName'], tournament['groupName'], tournament['isFinal'], tournament['currentMaxRound'], tournament['maxRound'], results)
+        return Tournament(tournament['key'], tournament['url'], tournament['tnrName'], tournament['groupName'], tournament['isFinal'], tournament['currentMaxRound'], tournament['maxRound'], results)
     
     def get_update_data_dict(self):
         update_data = {
             "isFinal": self.is_final,
-            "currentMaxRound": str (self.current_max_round),
+            "currentMaxRound": str (self.current_max_round) if self.current_max_round != None else None,
             "maxRound": str (self.max_round),
         }
         return update_data
@@ -67,6 +69,7 @@ class Tournament:
 class TnrSearchOutput(TypedDict):
     name: str
     url: str
+    groupName: str
 
 class TnrSearchInput():
     def __init__(self, vs, vsg, ev, name, time_type):

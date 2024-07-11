@@ -50,7 +50,7 @@ class MongoDBService(BaseDBService):
         except:
             raise DatabaseError(DATABASE_ERROR_MESSAGE)
 
-    def get_tnr(self, tournament_key: str, round: int = None):
+    def get_tnr(self, tournament_key: str, round: int = None) -> Tournament:
         try:
             db = self.__get_db()
             tournament_collection = db[TOURNAMENT_COLLECTION]
@@ -61,6 +61,7 @@ class MongoDBService(BaseDBService):
                     "key": tournament_key,
                     "results": { "$elemMatch": {"round": round} }
                 })
-            return res
+            tnr = Tournament.from_dict(res)
+            return tnr
         except:
             raise DatabaseError(DATABASE_ERROR_MESSAGE)

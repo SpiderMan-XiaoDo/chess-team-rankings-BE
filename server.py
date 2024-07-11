@@ -46,7 +46,7 @@ def search():
         with ThreadPoolExecutor() as executor:
             futures = []
             for tnr in tnr_res:
-                futures.append(executor.submit(chessresults_service.insert_search_tnr_result, tnr=tnr))
+                futures.append(executor.submit(chessresults_service.search_tnr, tnr=tnr))
             for future in as_completed(futures):
                 res.append(future.result())  
         return {

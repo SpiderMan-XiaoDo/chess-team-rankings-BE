@@ -14,16 +14,17 @@ class JSONFileDBService(BaseDBService):
 
     def __read_json_file_tnr_content(self, key):
         try:
-            with open(os.path.join(JSON_DIR_PATH, f'{key}.json'), 'r') as file:
+            with open(os.path.join(JSON_DIR_PATH, f'{key}.json'), 'r', encoding='utf-8') as file:
                 json_data = json.load(file)
             return json_data
         except:
             raise DatabaseError(DATABASE_ERROR_MESSAGE)
 
     def __write_json_file_tnr_content(self, key, json_data):
+        print(json_data)
         try:
-            with open(os.path.join(JSON_DIR_PATH, f'{key}.json'), 'w') as file:
-                json.dump(json_data, file)
+            with open(os.path.join(JSON_DIR_PATH, f'{key}.json'), 'w', encoding='utf-8') as file:
+                json.dump(json_data, file, ensure_ascii=False)
         except:
             raise DatabaseError(DATABASE_ERROR_MESSAGE)
 
@@ -58,18 +59,19 @@ class JSONFileDBService(BaseDBService):
         except:
             raise DatabaseError(DATABASE_ERROR_MESSAGE)
 
-    def get_tnr(self, tournament_key: str, round: int = None):
+    def get_tnr(self, tournament_key: str, round: int = None) -> Tournament:
         try:
             if os.path.exists(os.path.join(JSON_DIR_PATH, f'{tournament_key}.json')):
                 json_data = self.__read_json_file_tnr_content(tournament_key)
                 if (round is None):
-                    return json_data
+                    tnr = Tournament.from_dict(json_data)
                 else:
                     if 'results' not in json_data:
                         return None
                     result = any(d.get('round') == round for d in json_data['results'])
                     if (result):
-                        return json_data
+                        tnr = Tournament.from_dict(json_data)
+                return tnr
             else: 
                 return None
         except:

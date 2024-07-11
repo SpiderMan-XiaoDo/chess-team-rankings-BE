@@ -76,7 +76,7 @@ class Chessresults_Service:
 
     def __update_tnr_to_db(self, tnr_info: Tournament, round, rows) -> Tournament:
         round_res = round_res = TournamentResult(round, rows)
-        update_data = Tournament(tnr_info.key, tnr_info.tnr_name, tnr_info.group_name, tnr_info.is_final, tnr_info.current_max_round, tnr_info.max_round)
+        update_data = Tournament(tnr_info.key, tnr_info.url, tnr_info.tnr_name, tnr_info.group_name, tnr_info.is_final, tnr_info.current_max_round, tnr_info.max_round)
         self.db_service.update_tnr_info(tnr_info.key, update_data)
         self.db_service.add_round_to_tnr(tournament_key=tnr_info.key, value=round_res)
         return rows
@@ -122,38 +122,42 @@ class Chessresults_Service:
             db_tnr = self.db_service.get_tnr(tournament_key=key)
             if (round == None):
                 if (db_tnr != None):
-                    if (db_tnr['isFinal'] == True):
-                        round = db_tnr['maxRound']
+                    if (db_tnr.is_final == True):
+                        round = db_tnr.max_round
                     else:
                         tnr_info = self.__get_chess_results_tournament_info(key)
                         round = tnr_info.current_max_round
                 else:
                     tnr_info = self.__get_chess_results_tournament_info(key)
                     round = tnr_info.current_max_round
-            db_tnr_temp = Tournament.from_dict(db_tnr)
-            tnr = self.__get_tnr_result_from_key_and_round(key=key, round=round, db_tnr=db_tnr_temp)
+            tnr = self.__get_tnr_result_from_key_and_round(key=key, round=round, db_tnr=db_tnr)
             return tnr
         except TournamentNotHaveInfoError as e:
             raise TournamentNotHaveInfoError("Error")
         except Exception as e:
             raise e
         
-    def insert_search_tnr_result(self, tnr: TnrSearchOutput):
-        api_url = f"{BASE_API_URL}/{tnr['url']}"
-        key = get_tnr_key(api_url)
-        db_tnr = self.db_service.get_tnr(key)
-        if (db_tnr):
-            print('Case1')
-            res = {
-                "url": tnr['url'],
-                "name": db_tnr['tnrName']
-            }
-        else:
-            print('Case2')
-            tnr_info = self.__get_chess_results_tournament_info(key)
-            self.db_service.insert_tnr_info(tnr_info)
-            res = {
-                "url": tnr['url'],
-                "name": tnr_info.tnr_name
-            }
-        return res
+    def search_tnr(self, tnr: TnrSearchOutput):
+        try:
+            api_url = f"{BASE_API_URL}/{tnr['url']}"
+            key = get_tnr_key(api_url)
+            db_tnr = self.db_service.get_tnr(key)
+            if (db_tnr):
+                print('Case1')
+                res: TnrSearchOutput = {
+                    "url": db_tnr.url,
+                    "name": db_tnr.tnr_name,
+                    'groupName': db_tnr.group_name
+                }
+            else:
+                print('Case2')
+                tnr_info = self.__get_chess_results_tournament_info(key)
+                self.db_service.insert_tnr_info(tnr_info)
+                res: TnrSearchOutput = {
+                    "url": tnr_info.url,
+                    "name": tnr_info.tnr_name,
+                    'groupName': tnr_info.group_name
+                }
+            return res
+        except Exception as e:
+            raise e

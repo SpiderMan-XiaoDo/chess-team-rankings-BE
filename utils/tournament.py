@@ -63,7 +63,11 @@ def get_tnr_group(html_content: str):
     info_start_str = '<b>'
     info_end_str = '</b>'
     group_name = get_tnr_info(html_content, prev_phrase_str, None, info_start_str, info_end_str)
-    return group_name
+    if group_name is not None:
+        group_name = group_name.split(':')[-1].strip()
+        return group_name
+    else:
+        return ""
     
 def get_tnr_round(html_content: str):
     prev_phrase_str = '<td class="CR">Number of rounds</td>'
@@ -86,11 +90,12 @@ def get_chess_results_tournament_info_from_html(key, html_content: str) -> Tourn
         group_name = get_tnr_group(html_content)
         max_round = get_tnr_round(html_content)
         current_max_round = get_tnr_current_max_round(html_content)
+        url = get_chess_results_homepage_link(key)
         if (max_round != None and current_max_round != None):
             is_final = int(max_round) == int(current_max_round)
         else:
             is_final = False
-        tnr = Tournament(key, tnr_name, group_name, is_final, current_max_round, max_round, None)
+        tnr = Tournament(key, url, tnr_name, group_name, is_final, current_max_round, max_round, None)
         return tnr
     except:
         raise TournamentNotHaveInfoError()

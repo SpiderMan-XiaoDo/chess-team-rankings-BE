@@ -19,7 +19,7 @@ class DBService(BaseDBService):
 
     def add_round_to_tnr(self, tournament_key: str, value: TournamentResult):
         try:
-            return self.db_service.insert_tnr_info(tournament_key, value)
+            return self.db_service.add_round_to_tnr(tournament_key, value)
         except Exception as e:
             raise e
 
@@ -29,7 +29,7 @@ class DBService(BaseDBService):
         except Exception as e:
             raise e
 
-    def get_tnr(self, tournament_key: str):
+    def get_tnr(self, tournament_key: str) -> Tournament:
         try:
             return self.db_service.get_tnr(tournament_key)
         except Exception as e:
