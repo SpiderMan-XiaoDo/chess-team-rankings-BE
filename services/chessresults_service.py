@@ -101,15 +101,18 @@ class Chessresults_Service:
                     rows = self.__get_rank_from_chessresult_when_db_exists(key=key, round=round)
                     self.__update_tnr_to_db(tnr_info=tnr_info, round=round, rows=rows)
                 group_name = db_tnr.group_name
+                tnr_name = db_tnr.tnr_name
             else:
                 print('case 3')
                 # Case3: Get from chessresults when DB not exist tournament
                 rows = self.__get_rank_from_chessreults_when_db_not_exists(key=key, round=round)
                 tnr_info = self.__insert_tnr_to_db(key, round, rows)
                 group_name = tnr_info.group_name
+                tnr_name = tnr_info.tnr_name
             tnr = {
                 "url": api_url,
                 "groupName": group_name,
+                "tnrName": tnr_name,
                 "round": round,
                 "rows": rows
             }
