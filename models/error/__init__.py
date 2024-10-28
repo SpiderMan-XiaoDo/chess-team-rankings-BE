@@ -1,3 +1,4 @@
+"""Exception"""
 from .model import TournamentNotHaveInfoError, DatabaseError
 
 CHESSRESULTS_CONNECT_ERROR_MSG = "Lỗi kết nối Chessresult!"

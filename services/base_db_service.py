@@ -1,14 +1,16 @@
+"""DB Service Interface"""
 from models.tournament import Tournament, TournamentResult
 
 class BaseDBService:
+    """Base DB Service"""
     def insert_tnr_info(self, tnr: Tournament):
-        pass
+        """Insert tournament"""
 
     def add_round_to_tnr(self, tournament_key: str, value: TournamentResult):
-        pass
+        """Insert round to tournament"""
 
     def update_tnr_info(self, tournament_key: str, tnr: Tournament):
-        pass
+        """Update tournament info"""
 
-    def get_tnr(self, tournament_key: str, round: int = None):
-        pass
+    def get_tnr(self, tournament_key: str, rd: int = None):
+        """Get tournament"""

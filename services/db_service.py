@@ -1,3 +1,4 @@
+"""DB Service"""
 from models.tournament import Tournament, TournamentResult
 from models.db import DBServiceType
 from .mongo_db_service import MongoDBService
@@ -5,12 +6,13 @@ from .json_file_db_service import JSONFileDBService
 from .base_db_service import BaseDBService
 
 class DBService(BaseDBService):
-    def __init__(self, type: DBServiceType = DBServiceType.JSON_FILE):
-        if (type == DBServiceType.JSON_FILE):
+    """DB Service"""
+    def __init__(self, db_type: DBServiceType = DBServiceType.JSON_FILE):
+        if db_type == DBServiceType.JSON_FILE:
             self.db_service = JSONFileDBService()
         else:
             self.db_service = MongoDBService()
-        
+
     def insert_tnr_info(self, tnr: Tournament):
         try:
             return self.db_service.insert_tnr_info(tnr)
@@ -29,11 +31,8 @@ class DBService(BaseDBService):
         except Exception as e:
             raise e
 
-    def get_tnr(self, tournament_key: str) -> Tournament:
+    def get_tnr(self, tournament_key: str, rd: int = None) -> Tournament:
         try:
-            return self.db_service.get_tnr(tournament_key)
+            return self.db_service.get_tnr(tournament_key, rd)
         except Exception as e:
             raise e
-
-
-    

@@ -1,6 +1,8 @@
+"""Xlsx utilities"""
 from openpyxl import load_workbook
 
 def get_excel_rows(file):
+    """Get excel rows"""
     wb = load_workbook(file, data_only=True)
     sheet = wb['Sheet1']
     rows = []
