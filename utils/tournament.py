@@ -152,7 +152,7 @@ def get_chess_results_excel_link(key: str, rd: int = None):
     if rd is None:
         url += "rd=9"
     else:
-        url += f"rd={round}"
+        url += f"rd={rd}"
     return url
 
 def get_chess_results_homepage_link(key: str):
