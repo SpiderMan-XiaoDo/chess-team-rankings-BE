@@ -128,7 +128,7 @@ class ChessresultsService:
     def get_tnr_result(self, key: str, rd: int = None):
         """Get tournament result"""
         try:
-            db_tnr = self.db_service.get_tnr(tournament_key=key)
+            db_tnr = self.db_service.get_tnr(tournament_key=key, rd=rd)
             if rd is None:
                 if db_tnr is not None:
                     if db_tnr.is_final is True:

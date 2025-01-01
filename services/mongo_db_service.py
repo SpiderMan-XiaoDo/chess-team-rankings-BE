@@ -56,7 +56,7 @@ class MongoDBService(BaseDBService):
         try:
             db = self.__get_db()
             tournament_collection = db[TOURNAMENT_COLLECTION]
-            if round is None:
+            if rd is None:
                 res = tournament_collection.find_one({KEY_FIELD: tournament_key})
             else:
                 res = tournament_collection.find_one({
